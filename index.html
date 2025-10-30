@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Select App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+
+        .example {
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Пример приложения с веб-компонентом my-select</h1>
+    
+    <div class="example">
+       <!-- контейнер для динамически добавляемого веб-компонента -->
+    </div>
+
+    <script>
+        const onLoad = (evt) => {
+            const loadedScript = evt.target;
+            const componentName = loadedScript.dataset.name;
+
+            const el = document.createElement(componentName);
+            el.setAttribute('data-placeholder', 'Выберите фрукт');
+            el.innerHTML = `
+                <option value="apple">Яблоко</option>
+                <option value="banana">Банан</option>
+                <option value="cherry">Вишня</option>
+            `;
+
+            document.querySelector('.example').appendChild(el);
+        }
+
+        const onError = (err)=>{
+            console.error(`Ошибка загрузки скрипта: ${err}`);
+        }
+
+        const components = ['my-select'];
+        components.forEach(component=>{
+            const script = document.createElement('script');
+            script.src = `./${component}.js`;
+            script.dataset.name = component;
+            script.addEventListener('load', onLoad);
+            document.body.append(script);
+        });
+    </script>
+</body>
+</html>
