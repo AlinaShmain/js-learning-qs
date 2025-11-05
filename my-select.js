@@ -1,252 +1,361 @@
 class MySelect extends HTMLElement {
-	#selectButton;
-	#selectPopup;
-	#selectPopupSearch;
-	#optionsBox;
-	#optionsData = []; // [{ value: 'opt1', text: 'Option 1' }, ...]
-	#isOpen = false;
+  #selectButton;
+  #selectPopup;
+  #selectPopupSearch;
+  #shadow;
+  #optionsData = [];
+  #selectedOptions = new Set();
+  #allCheckbox;
 
-	#styles = {
-		host: `
-			  position: relative;
-			  display: inline-block;
-			  font-family: 'Roboto', Arial, sans-serif;
-			  font-size: 14px;
-		  `,
-		selectButton: `
-			  padding: 12px 16px;
-			  border: 1px solid #ddd;
-			  background: #fff;
-			  border-radius: 8px;
-			  cursor: pointer;
-			  width: 250px;
-			  text-align: left;
-			  transition: all 0.2s ease;
-			  outline: none;
-			  position: relative;
-		  `,
-		selectButtonHover: `
-			  border-color: #aaa;
-			  background: #f9f9f9;
-		  `,
-		selectButtonFocus: `
-			  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-		  `,
-		selectButtonAfter: ` /* Стрелка */
-			  content: '▼';
-			  position: absolute;
-			  right: 12px;
-			  top: 50%;
-			  transform: translateY(-50%);
-			  font-size: 12px;
-			  color: #666;
-			  transition: transform 0.2s ease;
-		  `,
-		selectPopup: `
-			  display: none;
-			  position: absolute;
-			  top: calc(100% + 4px);
-			  left: 0;
-			  width: 100%;
-			  border: 1px solid #ddd;
-			  background: #fff;
-			  border-radius: 8px;
-			  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-			  z-index: 1000;
-			  overflow: hidden;
-		  `,
-		selectPopupSearch: `
-			  width: 100%;
-			  padding: 10px 12px;
-			  box-sizing: border-box;
-			  border: none;
-			  border-bottom: 1px solid #eee;
-			  font-size: 14px;
-		  `,
-		selectPopupOptions: `
-			  max-height: 200px;
-			  overflow-y: auto;
-		  `,
-		option: `
-			  display: block;
-			  padding: 10px 12px;
-			  cursor: pointer;
-			  border-bottom: 1px solid #f5f5f5;
-			  transition: background 0.2s ease;
-		  `,
-		optionHover: `
-			  background: #f0f8ff;
-			  color: #333;
-		  `,
-		optionInput: `
-			  margin-right: 8px;
-		  `,
-	};
+  #styles = `
+    :host {
+      position: relative;
+      display: inline-block;
+      font-family: 'Roboto', Arial, sans-serif;
+      font-size: 14px;
+      --border-radius: var(--host-select-button-border-radius, 8px);
+      --button-bg: var(--host-select-button-background, #fff);
+      --button-border: var(--host-select-button-border, 1px solid #ddd);
+      --popup-bg: var(--host-select-popup-background, #fff);
+      --popup-border: var(--host-select-popup-border, 1px solid #ddd);
+      --popup-shadow: var(--host-select-popup-shadow, 0 4px 12px rgba(0, 0, 0, 0.15));
+      --primary: var(--host-select-primary-color, #007bff);
+      --option-hover-bg: var(--host-select-option-hover-bg, var(--primary));
+    }
 
-	constructor() {
-		super();
+  .select-button {
+    padding: 8px 12px;
+    border: var(--button-border);
+    background: var(--button-bg);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    width: 220px;
+    text-align: left;
+    transition: all 0.2s ease;
+    outline: none;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
 
-		this.attachShadow({ mode: "open" });
-	}
+  .select-button:hover {
+    border-color: var(--primary, #aaa),
+    background: #f9f9f9;
+  }
 
-	connectedCallback() {
-		// Срабатывает, когда пользовательский элемент впервые добавляется в DOM.
-		this.#createTemplate();
-		this.#renderOptions();
-	}
+  .select-button:focus {
+    box-shadow: 0 0 0 2px var(--primary, rgba(0, 123, 255, 0.25));
+  }
 
-	disconnectedCallback() {
-		// Срабатывает, когда пользовательский элемент удаляется из DOM.
-	}
+  .select-button-text {
+    flex: 1;
+  }
 
-	adoptedCallback() {
-		// Срабатывает, когда пользовательский элемент перемещён в новый документ.
-	}
+  .select-button-icon {
+    width: 12px;
+    height: 12px;
+    transition: transform 0.2s ease;
+    fill: var(--primary);
+  }
 
-	attributeChangedCallback() {
-		// Срабатывает, когда пользовательскому элементу добавляют, удаляют или изменяют атрибут.
-	}
+  .select-button.open .select-button-icon {
+    transform: rotate(180deg);
+  }
 
-	#createTemplate() {
-		const selectTemplate = document.createElement("template");
-		selectTemplate.innerHTML = `
-    	     <button class="select-button"><!--Здесь будет выбранная опция--></button>
-		
-    	     <div class="select-popup">
-    	        <input class="select-popup-search" placeholder="Search..." />
-    	        <!--Здесь будет список опций-->
-    	    </div>
-    	`;
-		this.shadowRoot.append(selectTemplate.content.cloneNode(true));
+  .select-popup {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    width: 220px;
+    border: var(--popup-border);
+    background: var(--popup-bg);
+    border-radius: var(--border-radius);
+    box-shadow: var(--popup-shadow);
+    z-index: 1000;
+    overflow: hidden;
+    animation: fadeIn 0.2s ease;
+  }
 
-		const css = `
-		  :host { ${this.#styles.host} }
-		  .select-button { ${this.#styles.selectButton} }
-		  .select-button:hover { ${this.#styles.selectButtonHover} }
-		  .select-button:focus { ${this.#styles.selectButtonFocus} }
-		  .select-button::after { ${this.#styles.selectButtonAfter} }
-		  .select-popup { ${this.#styles.selectPopup} }
-		  .select-popup-search { ${this.#styles.selectPopupSearch} }
-		  .select-popup-options { ${this.#styles.selectPopupOptions} }
-		  .option { ${this.#styles.option} }
-		  .option:hover { ${this.#styles.optionHover} }
-		  .option input { ${this.#styles.optionInput} }
-		`;
-		const style = document.createElement("style");
-		style.textContent = css;
-		this.shadowRoot.appendChild(style);
+  .select-popup.open {
+    display: block;
+  }
 
-		this.#selectButton = this.shadowRoot.querySelector(".select-button");
-		this.#selectPopup = this.shadowRoot.querySelector(".select-popup");
-		this.#selectPopupSearch = this.shadowRoot.querySelector(
-			".select-popup-search"
-		);
-		// this.#optionsBox = this.shadowRoot.querySelector(
-		// 	".select-popup-options"
-		// );
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 
-		this.#addEventListeners();
-	}
+  .select-popup-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+  }
 
-	#addEventListeners() {
-		this.#selectButton.addEventListener("click", (e) => {
-			e.stopPropagation();
-			this.#toggleOptions();
-		});
+  .all-checkbox {
+    margin-right: 8px;
+    cursor: pointer;
+  }
 
-		document.addEventListener("click", (e) => {
-			if (!this.shadowRoot.contains(e.target)) {
-				this.#closeOptions();
-			}
-		});
+  .select-popup-search {
+    flex: 1;
+    padding: 6px 8px;
+    box-sizing: border-box;
+    border: none;
+    font-size: 14px;
+  }
 
-		// иначе тоже всплывает до document
-		this.#selectPopup.addEventListener("click", (e) => {
-			e.stopPropagation();
-		});
+  .select-popup-options {
+    max-height: 180px;
+    overflow-y: auto;
+    padding: 0;
+  }
 
-		// будущий поиск
-		this.#selectPopupSearch.addEventListener("input", (e) => {
-			const query = e.target.value.toLowerCase();
-			console.log("query", query);
-		});
+  .option {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f5f5f5;
+    transition: background 0.2s ease;
+  }
 
-		// будущая обработка выбора опции
-		this.#selectPopup.addEventListener("change", (e) => {
-			if (e.target.type === "checkbox") {
-				const value = e.target.closest(".option").dataset.value;
-				console.log("checked val", value, e.target.checked);
-			}
-		});
-	}
+  .option:hover {
+    background: var(--option-hover-bg);
+  }
 
-	#toggleOptions() {
-		this.#isOpen = !this.#isOpen;
-		this.#selectPopup.style.display = this.#isOpen ? "block" : "none";
-	}
+  .option input {
+    margin-right: 8px;
+  }
 
-	#closeOptions() {
-		this.#isOpen = false;
-		this.#selectPopup.style.display = "none";
-	}
+  .option span {
+    flex: 1;
+  }
+`;
 
-	#renderOptions() {
-		const optionElements = Array.from(this.querySelectorAll("option"));
-		if (optionElements.length === 0) {
-			console.warn("Ни одной опции не найдено");
-			return;
-		}
+  constructor() {
+    super();
+  }
 
-		this.#optionsData = optionElements.map((opt) => ({
-			value: opt.value || opt.textContent.trim(),
-			text: opt.textContent.trim(),
-		}));
-		console.log("optionsData", this.#optionsData);
+  connectedCallback() {
+    // Срабатывает, когда пользовательский элемент впервые добавляется в DOM.
+    this.#shadow = this.attachShadow({ mode: "open" });
+    this.#createTemplate();
+    this.#renderOptions();
+  }
 
-		const optionsList = this.#buildOptionsList(this.#optionsData);
+  disconnectedCallback() {
+    // Срабатывает, когда пользовательский элемент удаляется из DOM.
+  }
 
-		this.#selectPopup.appendChild(optionsList);
+  adoptedCallback() {
+    // Срабатывает, когда пользовательский элемент перемещён в новый документ.
+  }
 
-		optionElements.forEach((opt) => opt.remove());
-	}
+  attributeChangedCallback() {
+    // Срабатывает, когда пользовательскому элементу добавляют, удаляют или изменяют атрибут.
+  }
 
-	// принимает массив опций, возвращает готовый <div class="select-popup-options">
-	#buildOptionsList(optionsArray) {
-		const optionsContainer = document.createElement("div");
-		optionsContainer.className = "select-popup-options";
+  #createTemplate() {
+    const selectTemplate = document.createElement("template");
 
-		const optionTemplate = document.createElement("template");
-		optionTemplate.innerHTML = `
+    const stylesContent = this.#styles;
+    selectTemplate.innerHTML = `
+      <style>${stylesContent}</style>
+
+      <button class="select-button">
+        <span class="select-button-text">Выбрать опции</span>
+        <svg class="select-button-icon" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 4.5l3 3 3-3z"/>
+        </svg>
+      </button>
+
+      <div class="select-popup">
+        <div class="select-popup-header">
+          <input type="checkbox" class="all-checkbox" title="Select all" />
+          <input class="select-popup-search" placeholder="Search..." />
+        </div>
+      </div>
+    `;
+
+    this.#shadow.append(selectTemplate.content.cloneNode(true));
+
+    this.#selectButton = this.shadowRoot.querySelector(".select-button");
+    this.#selectPopup = this.shadowRoot.querySelector(".select-popup");
+    this.#selectPopupSearch = this.#shadow.querySelector(
+      ".select-popup-search"
+    );
+    this.#allCheckbox = this.#shadow.querySelector(".all-checkbox");
+
+    this.#addEventListeners();
+  }
+
+  #addEventListeners() {
+    this.#selectButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.#openPopup();
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!this.#shadow.contains(e.target)) {
+        this.#closePopup();
+      }
+    });
+
+    // иначе тоже всплывает до document
+    this.#selectPopup.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+
+    this.#allCheckbox.addEventListener("change", () => {
+      this.#toggleAll(this.#allCheckbox.checked);
+    });
+
+    // будущий поиск
+    this.#selectPopupSearch.addEventListener("input", (e) => {
+      const query = e.target.value.toLowerCase();
+      console.log("query", query);
+    });
+
+    this.#selectPopup.addEventListener("change", (e) => {
+      if (
+        e.target.type === "checkbox" &&
+        !e.target.classList.contains("all-checkbox")
+      ) {
+        const value = e.target.closest(".option").dataset.value;
+        if (e.target.checked) {
+          this.#selectedOptions.add(value);
+        } else {
+          this.#selectedOptions.delete(value);
+        }
+        this.#updateButton();
+        this.#updateAllCheckbox();
+      }
+    });
+  }
+
+  #toggleAll(selected) {
+    const optionCheckboxes = this.#selectPopup.querySelectorAll(
+      '.option input[type="checkbox"]'
+    );
+    optionCheckboxes.forEach((cb) => {
+      cb.checked = selected;
+      const value = cb.closest(".option").dataset.value;
+      if (selected) {
+        this.#selectedOptions.add(value);
+      } else {
+        this.#selectedOptions.delete(value);
+      }
+    });
+    this.#updateButton();
+    this.#updateAllCheckbox();
+  }
+
+  #updateAllCheckbox() {
+    if (this.#optionsData.length === 0) {
+      this.#allCheckbox.checked = false;
+      this.#allCheckbox.indeterminate = false;
+      this.#allCheckbox.disabled = true;
+      return;
+    }
+
+    const allChecked = this.#optionsData.every((opt) =>
+      this.#selectedOptions.has(opt.value)
+    );
+    const someChecked = this.#selectedOptions.size > 0 && !allChecked;
+
+    this.#allCheckbox.checked = allChecked;
+    this.#allCheckbox.indeterminate = someChecked;
+    this.#allCheckbox.disabled = false;
+  }
+
+  #openPopup() {
+    this.#selectPopup.classList.toggle("open");
+    this.#selectButton.classList.toggle("open");
+    this.#updateAllCheckbox();
+  }
+
+  #closePopup() {
+    this.#selectPopup.classList.remove("open");
+    this.#selectButton.classList.remove("open");
+  }
+
+  #updateButton() {
+    const selectedTexts = Array.from(this.#selectedOptions)
+      .map((val) => this.#optionsData.find((opt) => opt.value === val)?.text)
+      .filter(Boolean);
+    const textElement = this.#shadow.querySelector(".select-button-text");
+
+    if (selectedTexts.length === 0) {
+      textElement.textContent = "Выбрать опции";
+    } else if (selectedTexts.length === 1) {
+      textElement.textContent = selectedTexts[0];
+    } else {
+      textElement.textContent = `${selectedTexts.length} опций выбрано`;
+    }
+  }
+
+  #renderOptions() {
+    const optionElements = Array.from(this.querySelectorAll("option"));
+    if (optionElements.length === 0) {
+      console.warn("Ни одной опции не найдено");
+      return;
+    }
+
+    this.#optionsData = optionElements.map((opt) => ({
+      value: opt.value || opt.textContent.trim(),
+      text: opt.textContent.trim(),
+    }));
+    console.log("optionsData", this.#optionsData);
+
+    const optionsList = this.#buildOptionsList(this.#optionsData);
+
+    this.#selectPopup.appendChild(optionsList);
+
+    optionElements.forEach((opt) => opt.remove());
+  }
+
+  // принимает массив опций, возвращает готовый <div class="select-popup-options">
+  #buildOptionsList(optionsArray) {
+    const optionsContainer = document.createElement("div");
+    optionsContainer.className = "select-popup-options";
+
+    const optionTemplate = document.createElement("template");
+    optionTemplate.innerHTML = `
             <label class="option">
                 <input type="checkbox" />
                 <span></span> <!-- Placeholder для текста -->
             </label>
         `;
 
-		optionsArray.forEach((option) => {
-			const clone = optionTemplate.content.cloneNode(true);
-			const label = clone.querySelector(".option");
-			const textSpan = clone.querySelector("span");
+    optionsArray.forEach((option) => {
+      const clone = optionTemplate.content.cloneNode(true);
+      const label = clone.querySelector(".option");
+      const textSpan = clone.querySelector("span");
 
-			label.dataset.value = option.value;
-			textSpan.textContent = option.text;
+      label.dataset.value = option.value;
+      textSpan.textContent = option.text;
 
-			optionsContainer.appendChild(clone);
-		});
+      if (this.#selectedOptions.has(option.value)) {
+        clone.querySelector("input").checked = true;
+      }
 
-		return optionsContainer;
-	}
+      optionsContainer.appendChild(clone);
+    });
+
+    return optionsContainer;
+  }
 }
 
 (function () {
-	const script = document.currentScript;
-	if (script && script.dataset.name) {
-		const componentName = script.dataset.name;
-		customElements.define(componentName, MySelect);
-		console.log(`Веб-компонент зарегистрирован как '${componentName}'`);
-	} else {
-		console.error(
-			"Не удалось определить имя компонента из data-name атрибута"
-		);
-	}
+  const script = document.currentScript;
+  if (script && script.dataset.name) {
+    const componentName = script.dataset.name;
+    customElements.define(componentName, MySelect);
+    console.log(`Веб-компонент зарегистрирован как '${componentName}'`);
+  } else {
+    console.error("Не удалось определить имя компонента из data-name атрибута");
+  }
 })();
