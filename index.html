@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Select App</title>
+    <title>My Select & Panel App</title>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -25,11 +25,27 @@
       my-select {
         --host-select-primary-color: #ff5733;
         --host-select-popup-background: #f0f0f0;
+        --host-select-button-border-radius: 6px;
+        --host-select-popup-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      my-panel {
+        --host-panel-border: 1px solid #ddd;
+        --host-panel-border-radius: 8px;
+        --host-panel-background: #fff;
+        --host-panel-header-bg: #f5f5f5;
+        --host-panel-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        --host-panel-primary-color: #007bff;
+      }
+
+      .my-panel-scrollable-content {
+        min-height: 200px;
+        padding: 10px;
       }
     </style>
   </head>
   <body>
-    <h1>Пример приложения с веб-компонентом my-select</h1>
+    <h1>Пример приложения с веб-компонентом my-select и my-panel</h1>
 
     <div class="example">
       <!-- контейнер для динамически добавляемого веб-компонента -->
@@ -40,22 +56,39 @@
         const loadedScript = evt.target;
         const componentName = loadedScript.dataset.name;
 
-        const el = document.createElement(componentName);
-        el.setAttribute("data-placeholder", "Выберите опцию");
-        el.innerHTML = `
+        if (componentName === "my-select") {
+          const el = document.createElement(componentName);
+          el.innerHTML = `
+              <div slot="search">
+                <input class="select-popup-search" placeholder="Поиск..." />
+              </div>
 			        <option value="opt1">Option 1</option>
 			        <option value="opt2">Option 2</option>
 			        <option value="opt3">Option 3</option>
 			    `;
 
-        document.querySelector(".example").appendChild(el);
+          const panel = document.createElement("my-panel");
+          panel.dataset.toggleable = "true";
+          panel.dataset.collapsed = "false";
+          panel.innerHTML = `
+            <div slot="header">My Custom Select Panel</div>
+            <div class="my-panel-scrollable-content">
+                <span>Multiselect field</span>
+            </div>
+          `;
+
+          const contentDiv = panel.querySelector('.my-panel-scrollable-content');
+          contentDiv.appendChild(el);
+
+          document.querySelector(".example").appendChild(panel);
+        }
       };
 
       const onError = (err) => {
         console.error(`Ошибка загрузки скрипта: ${err}`);
       };
 
-      const components = ["my-select"];
+      const components = ["my-select", "my-panel"];
       components.forEach((component) => {
         const script = document.createElement("script");
         script.src = `./${component}.js`;
