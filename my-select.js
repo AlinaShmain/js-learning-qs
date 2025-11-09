@@ -4,6 +4,7 @@ class MySelect extends HTMLElement {
   #selectPopupSearch;
   #shadow;
   #optionsData = [];
+  #filteredOptions = [];
   #selectedOptions = new Set();
   #allCheckbox;
 
@@ -148,6 +149,9 @@ class MySelect extends HTMLElement {
 
   disconnectedCallback() {
     // Срабатывает, когда пользовательский элемент удаляется из DOM.
+    if (this.#selectPopupSearch) {
+      this.#selectPopupSearch.removeEventListener("input", this.#searchChangeHandler);
+    }
   }
 
   adoptedCallback() {
@@ -157,6 +161,8 @@ class MySelect extends HTMLElement {
   attributeChangedCallback() {
     // Срабатывает, когда пользовательскому элементу добавляют, удаляют или изменяют атрибут.
   }
+
+  #searchChangeHandler = (e) => this.#filterOptions(e.target.value.toLowerCase());
 
   #createTemplate() {
     const selectTemplate = document.createElement("template");
@@ -175,7 +181,9 @@ class MySelect extends HTMLElement {
       <div class="select-popup">
         <div class="select-popup-header">
           <input type="checkbox" class="all-checkbox" title="Select all" />
-          <input class="select-popup-search" placeholder="Search..." />
+            <slot name="search">
+              <input class="select-popup-search" placeholder="Search..."/>
+            </slot>
         </div>
       </div>
     `;
@@ -213,12 +221,6 @@ class MySelect extends HTMLElement {
       this.#toggleAll(this.#allCheckbox.checked);
     });
 
-    // будущий поиск
-    this.#selectPopupSearch.addEventListener("input", (e) => {
-      const query = e.target.value.toLowerCase();
-      console.log("query", query);
-    });
-
     this.#selectPopup.addEventListener("change", (e) => {
       if (
         e.target.type === "checkbox" &&
@@ -232,6 +234,23 @@ class MySelect extends HTMLElement {
         }
         this.#updateButton();
         this.#updateAllCheckbox();
+        this.#updateValue();
+      }
+    });
+
+    const searchSlot = this.shadowRoot.querySelector('slot[name="search"]');
+    searchSlot.addEventListener("slotchange", () => {
+      const assignedNodes = searchSlot.assignedNodes();
+      if (assignedNodes.length > 0) {
+        const slotted = assignedNodes[0];
+        if (slotted.tagName === "INPUT") {
+          this.#selectPopupSearch = slotted;
+        } else {
+          this.#selectPopupSearch = slotted.querySelector("input");
+        }
+        if (this.#selectPopupSearch) {
+          this.#selectPopupSearch.addEventListener("input", this.#searchChangeHandler);
+        }
       }
     });
   }
@@ -251,9 +270,11 @@ class MySelect extends HTMLElement {
     });
     this.#updateButton();
     this.#updateAllCheckbox();
+    this.#updateValue();
   }
 
   #updateAllCheckbox() {
+    const visibleOptions = this.#filteredOptions.length > 0 ? this.#filteredOptions : this.#optionsData;
     if (this.#optionsData.length === 0) {
       this.#allCheckbox.checked = false;
       this.#allCheckbox.indeterminate = false;
@@ -261,7 +282,7 @@ class MySelect extends HTMLElement {
       return;
     }
 
-    const allChecked = this.#optionsData.every((opt) =>
+    const allChecked = visibleOptions.every((opt) =>
       this.#selectedOptions.has(opt.value)
     );
     const someChecked = this.#selectedOptions.size > 0 && !allChecked;
@@ -269,6 +290,25 @@ class MySelect extends HTMLElement {
     this.#allCheckbox.checked = allChecked;
     this.#allCheckbox.indeterminate = someChecked;
     this.#allCheckbox.disabled = false;
+  }
+
+   #updateOptionsList() {
+    const existingOptions = this.#selectPopup.querySelector(
+      ".select-popup-options"
+    );
+    if (existingOptions) {
+      existingOptions.remove();
+    }
+    const optionsList = this.#buildOptionsList(this.#filteredOptions);
+    this.#selectPopup.appendChild(optionsList);
+  }
+
+  #filterOptions(query) {
+    this.#filteredOptions = this.#optionsData.filter((opt) =>
+      opt.text.toLowerCase().includes(query)
+    );
+    this.#updateOptionsList();
+    this.#updateAllCheckbox();
   }
 
   #openPopup() {
@@ -308,7 +348,7 @@ class MySelect extends HTMLElement {
       value: opt.value || opt.textContent.trim(),
       text: opt.textContent.trim(),
     }));
-    console.log("optionsData", this.#optionsData);
+    this.#filteredOptions = [...this.#optionsData];
 
     const optionsList = this.#buildOptionsList(this.#optionsData);
 
@@ -346,6 +386,18 @@ class MySelect extends HTMLElement {
     });
 
     return optionsContainer;
+  }
+
+  #updateValue() {
+    this.value = Array.from(this.#selectedOptions).join(',');
+  }
+
+  get value() {
+    return this.getAttribute('value') || '';
+  }
+
+  set value(val) {
+    this.setAttribute('value', val);
   }
 }
 

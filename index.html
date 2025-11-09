@@ -43,6 +43,9 @@
         const el = document.createElement(componentName);
         el.setAttribute("data-placeholder", "Выберите опцию");
         el.innerHTML = `
+              <div slot="search">
+                <input class="select-popup-search" placeholder="Поиск..." />
+              </div>
 			        <option value="opt1">Option 1</option>
 			        <option value="opt2">Option 2</option>
 			        <option value="opt3">Option 3</option>
