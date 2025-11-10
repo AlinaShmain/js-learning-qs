@@ -69,17 +69,21 @@ class MyPanel extends HTMLElement {
       fill: var(--host-panel-primary-color, #007bff);
     }
 
-    :host([data-collapsed="true"]) .panel-body,
-    :host([data-collapsed="true"]) .panel-footer {
+    :host([collapsed="true"]) .panel-body,
+    :host([collapsed="true"]) .panel-footer {
       max-height: 0;
       padding-top: 0;
       padding-bottom: 0;
     }
 
-    :host([data-collapsed="true"]) .toggle-icon {
+    :host([collapsed="true"]) .toggle-icon {
       transform: rotate(180deg);
     }
   `;
+
+  static get observedAttributes() {
+    return ["collapsed", "toggleable", "header-style"];
+    }
 
   constructor() {
     super();
@@ -89,19 +93,21 @@ class MyPanel extends HTMLElement {
     this.#shadow = this.attachShadow({ mode: "open" });
     this.#createTemplate();
 
-    this.#isCollapsed = this.dataset.collapsed === "true";
+    this.#isCollapsed = this.getAttribute("collapsed") === "true";
     this.#applyCollapsedToHost();
     this.#updateToggleVisibility();
     this.#updateHeaderStyle();
+  }
 
-    this._observer = new MutationObserver((mutations) => {
-        for (const m of mutations) {
-            if (m.type === "attributes" && m.attributeName.startsWith("data-")) {
-                this.#onDataAttributeChanged(m.attributeName);
-            }
-        }
-    });
-    this._observer.observe(this, { attributes: true });
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (name === "collapsed") {
+      this.#isCollapsed = newValue === "true";
+      this.#applyCollapsedToHost();
+    } else if (name === "toggleable") {
+      this.#updateToggleVisibility();
+    } else if (name === "header-style") {
+      this.#updateHeaderStyle();
+    }
   }
 
   #createTemplate() {
@@ -139,49 +145,37 @@ class MyPanel extends HTMLElement {
   }
 
   #toggle() {
-    const toggleable = this.dataset.toggleable === "true";
-    if (!toggleable) return;
+    if (
+      !this.hasAttribute("toggleable") ||
+      this.getAttribute("toggleable") !== "true"
+    )
+      return;
 
     this.#isCollapsed = !this.#isCollapsed;
-    this.dataset.collapsed = this.#isCollapsed ? "true" : "false";
     this.#applyCollapsedToHost();
   }
 
-  #onDataAttributeChanged(attrName) {
-    if (attrName === "data-collapsed") {
-      const val = this.dataset.collapsed === "true";
-      if (val !== this.#isCollapsed) {
-        this.#isCollapsed = val;
-        this.#applyCollapsedToHost();
+    #applyCollapsedToHost() {
+      if (this.#isCollapsed) {
+        this.setAttribute("collapsed", "true");
+      } else {
+        this.removeAttribute("collapsed");
       }
-    } else if (attrName === "data-toggleable") {
-      this.#updateToggleVisibility();
-    } else if (attrName === "data-header-style") {
-      this.#updateHeaderStyle();
     }
-  }
 
-  #applyCollapsedToHost() {
-    if (this.#isCollapsed) {
-      this.setAttribute("data-collapsed", "true");
-    } else {
-      this.removeAttribute("data-collapsed");
+    #updateToggleVisibility() {
+      const isToggleable = this.getAttribute("toggleable") === "true";
+      if (this.#toggleButton)
+        this.#toggleButton.style.display = isToggleable ? "block" : "none";
     }
-  }
 
-  #updateToggleVisibility() {
-    const isToggleable = this.dataset.toggleable === "true";
-    if (this.#toggleButton)
-      this.#toggleButton.style.display = isToggleable ? "block" : "none";
-  }
-
-  #updateHeaderStyle() {
-    const header = this.#shadow.querySelector(".panel-header");
-    const style = this.dataset.headerStyle;
-    if (header) {
+    #updateHeaderStyle() {
+      const header = this.#shadow.querySelector(".panel-header");
+      const style = this.getAttribute("header-style");
+      if (header) {
         header.style.cssText = style || "";
+      }
     }
-  }
 }
 
 (function () {

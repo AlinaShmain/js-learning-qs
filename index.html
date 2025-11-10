@@ -42,6 +42,16 @@
         min-height: 200px;
         padding: 10px;
       }
+
+      my-card {
+        --host-card-border: 1px solid #ddd;
+        --host-card-border-radius: 8px;
+        --host-card-background: #fff;
+        --host-card-header-bg: #f5f5f5;
+        --host-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        --host-card-sub-header-bg: #fafafa;
+        --host-card-sub-header-color: #666;
+      }
     </style>
   </head>
   <body>
@@ -68,8 +78,8 @@
 			    `;
 
           const panel = document.createElement("my-panel");
-          panel.dataset.toggleable = "true";
-          panel.dataset.collapsed = "false";
+          panel.setAttribute("toggleable", "true");
+          panel.setAttribute("collapsed", "false");
           panel.innerHTML = `
             <div slot="header">My Custom Select Panel</div>
             <div class="my-panel-scrollable-content">
@@ -81,6 +91,20 @@
           contentDiv.appendChild(el);
 
           document.querySelector(".example").appendChild(panel);
+        } else if (componentName === "my-card") {
+          const card = document.createElement(componentName);
+          card.setAttribute("header", "Advanced Card");
+          card.setAttribute("sub-header", "Subtitle text");
+          card.innerHTML = `
+            <div slot="content">
+              <p>This is the main content of the card.</p>
+            </div>
+            <div slot="footer">
+              <button>Action Button</button>
+            </div>
+          `;
+
+          document.querySelector(".example").appendChild(card);
         }
       };
 
@@ -88,7 +112,7 @@
         console.error(`Ошибка загрузки скрипта: ${err}`);
       };
 
-      const components = ["my-select", "my-panel"];
+      const components = ["my-select", "my-panel", "my-card"];
       components.forEach((component) => {
         const script = document.createElement("script");
         script.src = `./${component}.js`;
